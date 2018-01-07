@@ -227,7 +227,10 @@ class SpeedTest(object):
             if match is None:
                 continue
             server_host = match.groups()[0]
-            latency = self.ping(server_host)
+            try:
+                latency = self.ping(server_host)
+            except:
+                continue
             if latency < best_server[0]:
                 best_server = (latency, server_host)
         if not best_server[1]:
