@@ -34,6 +34,30 @@ __description__ = 'Test your bandwidth speed using Speedtest.net servers.'
 __supported_formats__ = ('default', 'json', 'xml')
 
 
+class PropagatingThread(Thread):
+    """
+    Source:
+    https://stackoverflow.com/a/31614591/4117209
+    """
+
+    def run(self):
+        self.exc = None
+        try:
+            if hasattr(self, '_Thread__target'):
+                # Thread uses name mangling prior to Python 3
+                self.ret = self._Thread__target(*self._Thread__args, **self._Thread__kwargs)
+            else:
+                self.ret = self._target(*self._args, **self._kwargs)
+        except BaseException as e:
+            self.exc = e
+
+    def join(self, timeout=None):
+        super(PropagatingThread, self).join(timeout)
+        if self.exc is not None:
+            raise self.exc
+        return self.ret
+
+
 class SpeedTest(object):
 
     USER_AGENTS = {
@@ -95,7 +119,7 @@ class SpeedTest(object):
         for current_file in SpeedTest.DOWNLOAD_FILES:
             threads = []
             for run in range(self.runs):
-                thread = Thread(
+                thread = PropagatingThread(
                     target=self.downloadthread,
                     args=(connections[run],
                           '%s?x=%d' % (current_file, int(time() * 1000))))
@@ -139,8 +163,9 @@ class SpeedTest(object):
         for data in post_data:
             threads = []
             for run in range(self.runs):
-                thread = Thread(target=self.uploadthread,
-                                args=(connections[run], data))
+                thread = PropagatingThread(
+                    target=self.uploadthread,
+                    args=(connections[run], data))
                 thread.run_number = run + 1
                 thread.start()
                 threads.append(thread)
